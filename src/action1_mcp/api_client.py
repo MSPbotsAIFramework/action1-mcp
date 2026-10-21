@@ -86,6 +86,9 @@ class Action1Credentials:
     secret: str
     region: str = DEFAULT_REGION
     default_org_id: str | None = None
+    # Set when a header value is malformed: tools then return invalid_argument
+    # instead of calling Action1, while tools/list still works.
+    header_error: str | None = None
 
     def __repr__(self) -> str:  # never leak secrets into logs or tracebacks
         return (
@@ -104,6 +107,7 @@ class Action1Client:
     def __init__(self, credentials: Action1Credentials, http_client: httpx.AsyncClient | None = None):
         self._credentials = credentials
         self._http = http_client
+        self.header_error = credentials.header_error
         self._access_token: str | None = None
         self.base_url = REGION_BASE_URLS[credentials.region]
 

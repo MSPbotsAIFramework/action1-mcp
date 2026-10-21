@@ -32,7 +32,8 @@ Where to get them:
   updates).
 
 A request to `/mcp` without the required headers gets HTTP 401 with the list of required
-headers; an unknown region gets HTTP 400.
+headers. An unknown region does not block `tools/list`; tools then return an `invalid_argument`
+error naming the allowed regions.
 
 ## Tools
 

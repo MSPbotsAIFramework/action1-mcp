@@ -24,7 +24,7 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .api_client import Action1Client, Action1Credentials
-from .config import REGION_BASE_URLS, Settings, resolve_region
+from .config import DEFAULT_REGION, REGION_BASE_URLS, Settings, resolve_region
 
 HEADER_API_KEY = "X-Action1-API-Key"
 HEADER_SECRET = "X-Action1-Secret"
@@ -75,7 +75,8 @@ def get_client_from_context() -> Action1Client | None:
 class GatewayCredentialsMiddleware:
     """Reads X-Action1-* headers on /mcp requests into the request context.
 
-    Missing required headers -> 401 listing them; unknown region -> 400.
+    Missing required headers -> 401 listing them. A malformed region does not block
+    the request (tools/list must work with any values); tools report it instead.
     """
 
     def __init__(self, app: ASGIApp):
@@ -105,19 +106,13 @@ class GatewayCredentialsMiddleware:
             )(scope, receive, send)
             return
 
+        header_error = None
         if region is None:
-            await JSONResponse(
-                {
-                    "error": "Invalid region",
-                    "message": f"{HEADER_REGION} must be one of: {', '.join(REGION_BASE_URLS)}",
-                    "allowed_values": list(REGION_BASE_URLS),
-                },
-                status_code=400,
-            )(scope, receive, send)
-            return
+            header_error = f"{HEADER_REGION} must be one of: {', '.join(REGION_BASE_URLS)}"
+            region = DEFAULT_REGION
 
         request_id = (request.headers.get("x-request-id") or "").strip()[:64] or uuid.uuid4().hex[:12]
-        creds_token = _credentials_var.set(Action1Credentials(api_key, secret, region, default_org))
+        creds_token = _credentials_var.set(Action1Credentials(api_key, secret, region, default_org, header_error))
         rid_token = request_id_var.set(request_id)
         try:
             await self.app(scope, receive, send)

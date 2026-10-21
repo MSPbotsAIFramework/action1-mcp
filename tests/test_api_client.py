@@ -147,3 +147,15 @@ async def test_get_endpoint_uses_region_host(monkeypatch):
     assert fake.requests[-1].url.host == "app.eu.action1.com"
     assert fake.requests[-1].url.path == "/api/3.0/endpoints/managed/all/ep-1"
     assert result == {"id": "ep-1", "name": "WS-001"}
+
+
+def test_size_cap_continues_after_the_last_returned_item():
+    from action1_mcp._json import dump_json_capped
+    from action1_mcp.tools._common import list_result
+
+    doc = {"items": [{"id": i, **{f"f{j}": f"value-{j:04d}" for j in range(120)}} for i in range(50)],
+           "total_items": 500, "next_page": "https://app.action1.com/api/3.0/endpoints?from=100&limit=50"}
+    out = json.loads(dump_json_capped(list_result(doc)))
+    n = len(out["items"])
+    assert 0 < n < 50 and out["count"] == n
+    assert out["next_offset"] == 50 + n and "_resume" not in out

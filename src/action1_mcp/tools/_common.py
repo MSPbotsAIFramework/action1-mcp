@@ -98,13 +98,17 @@ def list_result(document: Any, shape: Callable[[Any], Any] = strip_links) -> dic
         total = int(total) if total is not None else None
     except (TypeError, ValueError):
         pass
-    return {
+    result: dict[str, Any] = {
         "items": items,
         "count": len(items),
         "total_items": total,
         "has_more": next_offset is not None,
         "next_offset": next_offset,
     }
+    if isinstance(next_offset, int):
+        # Lets the size cap continue right after the last item it returns (Action1 accepts any offset).
+        result["_resume"] = {"key": "next_offset", "start": max(0, next_offset - len(items))}
+    return result
 
 
 def path_id(value: Any) -> str:
